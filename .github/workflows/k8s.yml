@@ -39,7 +39,7 @@ jobs:
 
       - name: Build application image
         run: |
-        minikube image build -t rest-service:local .
+          minikube image build -t rest-service:local .
 
       - name: Deploy application
         run: |
