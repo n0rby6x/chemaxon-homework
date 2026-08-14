@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world-rest
+  labels:
+    app: hello-world-rest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-world-rest
+  template:
+    metadata:
+      labels:
+        app: hello-world-rest
+    spec:
+      containers:
+        - name: hello-world-rest
+          # Built directly into minikube's own Docker daemon by
+          # scripts/build-and-deploy.sh - no remote registry involved.
+          image: hello-world-rest:local
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /hello-world
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /hello-world
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi

@@ -1,0 +1,3 @@
+# Downloaded/extracted application source - fetched at build time, not
+# committed (see scripts/build-and-deploy.sh).
+/app/
