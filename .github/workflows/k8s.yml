@@ -39,11 +39,12 @@ jobs:
 
       - name: Build application image
         run: |
-          minikube image build -t rest-service:local .
+        minikube image build -t rest-service:local .
 
       - name: Deploy application
         run: |
-          kubectl apply -f k8s/
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
 
       - name: Wait for deployment
         run: |
@@ -52,7 +53,8 @@ jobs:
       - name: Show Kubernetes resources
         run: |
           kubectl get pods -o wide
-          kubectl get services
+          kubectl get deployment
+          kubectl get service
 
       - name: Start port forward
         run: |
