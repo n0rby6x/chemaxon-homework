@@ -29,23 +29,12 @@ echo "==> Deploying Kubernetes resources"
 kubectl apply -f k8s/
 
 echo
+echo "==> Deploying Kubernetes resources"
+
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+
+echo
 echo "==> Waiting for deployment"
 
-kubectl rollout status deployment/"$DEPLOYMENT" --timeout=120s
-
-echo
-echo "==> Deployment successful"
-
-kubectl get pods
-kubectl get service "$SERVICE"
-
-echo
-echo "The application is deployed."
-echo
-echo "Run the following command in another terminal:"
-echo
-echo "  kubectl port-forward service/$SERVICE 8080:8080"
-echo
-echo "Then test:"
-echo
-echo "  curl http://localhost:8080/hello-world"
+kubectl rollout status deployment/rest-service --timeout=120s
