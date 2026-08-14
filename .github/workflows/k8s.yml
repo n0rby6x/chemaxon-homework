@@ -16,7 +16,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check Docker
-        run: docker --version
+        run: |
+          docker --version
+          docker info
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
@@ -27,69 +29,172 @@ jobs:
           sudo install minikube-linux-amd64 /usr/local/bin/minikube
           rm minikube-linux-amd64
 
+      - name: Check Minikube
+        run: |
+          minikube version
+
       - name: Start Minikube
         run: |
           minikube start --driver=docker
 
-      - name: Show cluster information
+      - name: Show Minikube status
         run: |
           minikube status
           kubectl cluster-info
           kubectl get nodes
 
-      - name: Build application image
+      - name: Build Docker image
         run: |
-          minikube image build -t rest-service:local .
+          docker build -t rest-service:local .
+
+      - name: Verify Docker image
+        run: |
+          docker image inspect rest-service:local
+          docker images rest-service:local
+
+      - name: Load image into Minikube
+        run: |
+          minikube image load rest-service:local
+
+      - name: Verify image in Minikube
+        run: |
+          echo "Images in Minikube:"
+          minikube image ls
+
+          echo
+          echo "Checking rest-service image:"
+          minikube image ls | grep "rest-service"
 
       - name: Deploy application
         run: |
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
 
+      - name: Show Kubernetes resources
+        run: |
+          kubectl get deployment
+          kubectl get pods -o wide
+          kubectl get service
+
       - name: Wait for deployment
         run: |
           kubectl rollout status deployment/rest-service --timeout=120s
 
-      - name: Show Kubernetes resources
+      - name: Show deployment status
         run: |
-          kubectl get pods -o wide
-          kubectl get deployment
-          kubectl get service
+          kubectl get deployment rest-service
+          kubectl get pods -l app=rest-service -o wide
+          kubectl get service rest-service
 
       - name: Start port forward
         run: |
           kubectl port-forward service/rest-service 8080:8080 > /tmp/port-forward.log 2>&1 &
           echo $! > /tmp/port-forward.pid
 
-          for i in {1..20}; do
-            if curl --silent --fail http://localhost:8080/hello-world >/dev/null; then
-              echo "Port forward is ready."
+          echo "Waiting for port-forward..."
+
+          for i in {1..30}; do
+            if curl --silent --fail http://localhost:8080/hello-world > /dev/null; then
+              echo "Port-forward is ready."
               exit 0
             fi
 
             sleep 1
           done
 
-          echo "Port forward failed."
-          cat /tmp/port-forward.log
+          echo "Port-forward failed."
+
+          if [ -f /tmp/port-forward.log ]; then
+            cat /tmp/port-forward.log
+          fi
+
           exit 1
 
       - name: Test REST endpoint
         run: |
           response=$(curl --fail --silent http://localhost:8080/hello-world)
 
-          echo "Response: $response"
+          echo "Response:"
+          echo "$response"
 
-          test "$response" = '{"message":"Hello World"}'
+          expected='{"message":"Hello World"}'
 
-      - name: Show logs on failure
+          if [ "$response" != "$expected" ]; then
+            echo "ERROR: Unexpected response."
+            echo "Expected: $expected"
+            echo "Actual:   $response"
+            exit 1
+          fi
+
+          echo "SUCCESS: REST endpoint returned the expected response."
+
+      - name: Debug Kubernetes resources
         if: failure()
         run: |
-          kubectl get pods -o wide
-          kubectl describe deployment rest-service
-          kubectl describe pods
-          kubectl logs deployment/rest-service || true
-          cat /tmp/port-forward.log || true
+          echo "========================================"
+          echo "MINIKUBE STATUS"
+          echo "========================================"
+          minikube status || true
+
+          echo "========================================"
+          echo "MINIKUBE IMAGES"
+          echo "========================================"
+          minikube image ls || true
+
+          echo "========================================"
+          echo "DOCKER IMAGES"
+          echo "========================================"
+          docker images || true
+
+          echo "========================================"
+          echo "KUBERNETES NODES"
+          echo "========================================"
+          kubectl get nodes -o wide || true
+
+          echo "========================================"
+          echo "PODS"
+          echo "========================================"
+          kubectl get pods -o wide || true
+
+          echo "========================================"
+          echo "DEPLOYMENTS"
+          echo "========================================"
+          kubectl get deployments || true
+
+          echo "========================================"
+          echo "SERVICES"
+          echo "========================================"
+          kubectl get services || true
+
+          echo "========================================"
+          echo "DEPLOYMENT DESCRIPTION"
+          echo "========================================"
+          kubectl describe deployment rest-service || true
+
+          echo "========================================"
+          echo "POD DESCRIPTION"
+          echo "========================================"
+          kubectl describe pods -l app=rest-service || true
+
+          echo "========================================"
+          echo "POD LOGS"
+          echo "========================================"
+          kubectl logs deployment/rest-service --all-containers=true || true
+
+          echo "========================================"
+          echo "KUBERNETES EVENTS"
+          echo "========================================"
+          kubectl get events --sort-by=.lastTimestamp || true
+
+          echo "========================================"
+          echo "PORT FORWARD LOG"
+          echo "========================================"
+
+          if [ -f /tmp/port-forward.log ]; then
+            cat /tmp/port-forward.log
+          else
+            echo "No port-forward log found."
+          fi
 
       - name: Stop Minikube
         if: always()
