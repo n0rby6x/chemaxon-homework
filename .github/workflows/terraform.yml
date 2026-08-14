@@ -100,16 +100,18 @@ jobs:
           terraform_wrapper: false
 
       - name: terraform init
-        run: terraform init -backend=false -input=false
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ matrix.directory }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}"
 
       - name: terraform validate
         run: terraform validate
 
   plan:
     name: plan (${{ matrix.directory }})
-    needs:
-      - discover
-      - validate
+    needs: validate
 
     runs-on: ubuntu-latest
 
