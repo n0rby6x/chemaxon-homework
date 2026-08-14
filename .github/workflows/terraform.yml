@@ -5,6 +5,7 @@ on:
     branches: [dev]
     paths:
       - "backup-bucket/**"
+      - "vpc/**"
       - ".github/workflows/terraform.yml"
 
   workflow_dispatch: {}
@@ -13,58 +14,83 @@ jobs:
   fmt:
     name: FMT
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
+
       - name: terraform fmt -check
         run: terraform fmt -check -diff
 
+
   validate:
-    name: validate
+    name: validate (${{ matrix.module }})
     needs: fmt
     runs-on: ubuntu-latest
-    strategy: 
+
+    strategy:
       fail-fast: false
       matrix:
         module:
-        - vpc/modules/vpc
-        - vpc/examples/basic
+          - vpc/modules/vpc
+          - vpc/examples/basic
+          - backup-bucket
+
     defaults:
       run:
         working-directory: ${{ matrix.module }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
+
       - name: terraform init
         run: terraform init -backend=false -input=false
+
       - name: terraform validate
         run: terraform validate
 
+
   plan:
-    name: terraform plan
+    name: terraform plan (${{ matrix.module }})
     runs-on: ubuntu-latest
     needs: validate
+
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - vpc/examples/basic
+          - backup-bucket
+
     defaults:
       run:
-        working-directory: vpc/examples/basic
+        working-directory: ${{ matrix.module }}
+
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
+
       - name: terraform init
         run: |
           terraform init -input=false \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=backup-bucket/terraform.tfstate" \
+            -backend-config="key=${{ matrix.module }}/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_REGION }}"
+
       - name: terraform plan
         run: terraform plan -input=false
