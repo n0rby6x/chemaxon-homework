@@ -34,17 +34,13 @@ jobs:
     defaults:
       run:
         working-directory: ${{ matrix.module }}
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
-
       - name: terraform init
         run: terraform init -backend=false -input=false
-
       - name: terraform validate
         run: terraform validate
 
@@ -54,26 +50,21 @@ jobs:
     needs: validate
     defaults:
       run:
-        working-directory: vpc
-
+        working-directory: vpc/examples/basic
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
-
       - name: terraform init
         run: |
           terraform init -input=false \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
             -backend-config="key=backup-bucket/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_REGION }}"
-
       - name: terraform plan
         run: terraform plan -input=false
