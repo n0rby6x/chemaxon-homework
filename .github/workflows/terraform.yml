@@ -5,13 +5,11 @@ on:
     branches: [dev]
     paths:
       - "backup-bucket/**"
-      - ".github/workflows/terraform.yml"
-
   workflow_dispatch: {}
 
 jobs:
   fmt:
-    name: Terraform fmt
+    name: FMT
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,39 +19,18 @@ jobs:
           terraform_wrapper: false
 
       - name: terraform fmt -check
-        run: terraform fmt -check -recursive backup-bucket
-
-  discover:
-    name: Discover Terraform projects
-    needs:
-      - fmt
-    runs-on: ubuntu-latest
-    outputs:
-      directories: ${{ steps.find.outputs.directories }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Find Terraform project
-        id: find
-        shell: bash
-        run: |
-          directories='["backup-bucket"]'
-
-          echo "Terraform projects:"
-          echo "$directories" | jq .
-
-          echo "directories=$directories" >> "$GITHUB_OUTPUT"
+        run: terraform fmt -check -recursive -diff
 
   validate:
-    name: Validate ${{ matrix.directory }}
-    needs:
-      - discover
+    name: validate (${{ matrix.directory }})
+    needs: fmt
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
-        directory: ${{ fromJSON(needs.discover.outputs.directories) }}
+        directory:
+          - backup-bucket
 
     defaults:
       run:
@@ -73,16 +50,15 @@ jobs:
         run: terraform validate
 
   plan:
-    name: Plan ${{ matrix.directory }}
-    needs:
-      - validate
-
+    name: terraform plan (${{ matrix.directory }})
     runs-on: ubuntu-latest
+    needs: validate
 
     strategy:
       fail-fast: false
       matrix:
-        directory: ${{ fromJSON(needs.discover.outputs.directories) }}
+        directory:
+          - backup-bucket
 
     defaults:
       run:
@@ -104,7 +80,7 @@ jobs:
         run: |
           terraform init -input=false \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=${{ matrix.directory }}/terraform.tfstate" \
+            -backend-config="key=backup-bucket/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_REGION }}"
 
       - name: terraform plan
