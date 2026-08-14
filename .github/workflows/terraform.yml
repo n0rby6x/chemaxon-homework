@@ -26,6 +26,7 @@ jobs:
       - name: terraform fmt -check
         run: terraform fmt -check -diff
 
+
   validate:
     name: validate (${{ matrix.module }})
     needs: fmt
@@ -56,10 +57,11 @@ jobs:
       - name: terraform validate
         run: terraform validate
 
+
   plan:
     name: terraform plan (${{ matrix.module }})
-    runs-on: ubuntu-latest
     needs: validate
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
@@ -97,8 +99,10 @@ jobs:
       - name: terraform plan
         run: terraform plan -input=false
 
-  k8s:
+
+  k8s-validation:
     name: Kubernetes validation
+    needs: fmt
     runs-on: ubuntu-latest
 
     defaults:
@@ -113,7 +117,37 @@ jobs:
 
       - name: Validate Kubernetes manifests
         run: |
-          kubectl kustomize k8s > /tmp/k8s-rendered.yaml
+          kubectl kustomize . > /tmp/k8s-rendered.yaml
 
       - name: Show rendered manifests
         run: cat /tmp/k8s-rendered.yaml
+
+
+  k8s-deploy:
+    name: Kubernetes deploy
+    needs:
+      - k8s-validation
+      - plan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install minikube
+        uses: medyagh/setup-minikube@latest
+
+      - name: Start minikube
+        run: |
+          minikube start --driver=docker
+
+      - name: Deploy Kubernetes manifests
+        working-directory: k8s
+        run: |
+          kubectl apply -k .
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/hello-world
