@@ -13,7 +13,6 @@ jobs:
   fmt:
     name: Terraform fmt
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +25,9 @@ jobs:
 
   discover:
     name: Discover Terraform projects
+    needs:
+      - fmt
     runs-on: ubuntu-latest
-
     outputs:
       directories: ${{ steps.find.outputs.directories }}
 
@@ -48,11 +48,8 @@ jobs:
   validate:
     name: Validate ${{ matrix.directory }}
     needs:
-      - fmt
       - discover
-
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
@@ -79,7 +76,6 @@ jobs:
     name: Plan ${{ matrix.directory }}
     needs:
       - validate
-      - discover
 
     runs-on: ubuntu-latest
 
