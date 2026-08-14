@@ -1,12 +1,10 @@
-name: Terraform
+name: Terraform Plan
 
 on:
   push:
     branches: [dev]
     paths:
-      - "vpc/modules/**"
-      - "vpc/examples/**
-      - ".github/workflows/terraform.yml"
+      - "backup-bucket/**"
 
   workflow_dispatch: {}
 
