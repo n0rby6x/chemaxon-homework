@@ -1,0 +1,95 @@
+name: Kubernetes CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  test:
+    name: Build and test on Minikube
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Docker
+        run: docker --version
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install Minikube
+        run: |
+          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo install minikube-linux-amd64 /usr/local/bin/minikube
+          rm minikube-linux-amd64
+
+      - name: Start Minikube
+        run: |
+          minikube start --driver=docker
+
+      - name: Show cluster information
+        run: |
+          minikube status
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Build application image
+        run: |
+          minikube image build -t rest-service:local .
+
+      - name: Deploy application
+        run: |
+          kubectl apply -f k8s/
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/rest-service --timeout=120s
+
+      - name: Show Kubernetes resources
+        run: |
+          kubectl get pods -o wide
+          kubectl get services
+
+      - name: Start port forward
+        run: |
+          kubectl port-forward service/rest-service 8080:8080 > /tmp/port-forward.log 2>&1 &
+          echo $! > /tmp/port-forward.pid
+
+          for i in {1..20}; do
+            if curl --silent --fail http://localhost:8080/hello-world >/dev/null; then
+              echo "Port forward is ready."
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "Port forward failed."
+          cat /tmp/port-forward.log
+          exit 1
+
+      - name: Test REST endpoint
+        run: |
+          response=$(curl --fail --silent http://localhost:8080/hello-world)
+
+          echo "Response: $response"
+
+          test "$response" = '{"message":"Hello World"}'
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          kubectl get pods -o wide
+          kubectl describe deployment rest-service
+          kubectl describe pods
+          kubectl logs deployment/rest-service || true
+          cat /tmp/port-forward.log || true
+
+      - name: Stop Minikube
+        if: always()
+        run: |
+          minikube stop || true

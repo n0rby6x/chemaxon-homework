@@ -1,19 +1,24 @@
-.PHONY: check up deploy forward down clean
+.PHONY: check minikube build deploy test stop clean
 
 check:
-	./scripts/check-prerequisites.sh
+	./scripts/check-tools.sh
 
-up:
-	./scripts/setup-minikube.sh
+minikube:
+	minikube start --driver=docker
 
-deploy: up
-	./scripts/build-and-deploy.sh
+build:
+	minikube image build -t rest-service:local .
 
-forward:
-	./scripts/forward.sh
+deploy:
+	kubectl apply -f k8s/
+	kubectl rollout status deployment/rest-service --timeout=120s
 
-down:
-	./scripts/teardown.sh
+test:
+	./scripts/test.sh
+
+stop:
+	minikube stop
 
 clean:
-	./scripts/teardown.sh --full
+	kubectl delete -f k8s/ --ignore-not-found
+	minikube stop
