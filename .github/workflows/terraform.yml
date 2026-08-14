@@ -5,6 +5,7 @@ on:
     branches: [dev]
     paths:
       - "backup-bucket/**"
+      - ".github/workflows/terraform.yml"
 
   workflow_dispatch: {}
 
@@ -29,7 +30,7 @@ jobs:
       matrix:
         module:
         - vpc/modules/vpc
-        - vpc/examples/basi
+        - vpc/examples/basic
     defaults:
       run:
         working-directory: ${{ matrix.module }}
