@@ -1,4 +1,4 @@
-name: Terraform (fmt / validate / plan)
+name: Terraform
 
 on:
   push:
@@ -31,6 +31,7 @@ jobs:
 
   validate:
     name: validate (${{ matrix.module }})
+    needs: fmt
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -48,15 +49,14 @@ jobs:
         with:
           terraform_wrapper: false
 
-      # -backend=false: validate doesn't need real state or AWS credentials.
-      - name: terraform init (no backend)
+      - name: terraform init
         run: terraform init -backend=false -input=false
 
       - name: terraform validate
         run: terraform validate
 
   plan:
-    name: plan (vpc/examples/basic)
+    name: terrafom plan
     runs-on: ubuntu-latest
     needs: validate
     defaults:
