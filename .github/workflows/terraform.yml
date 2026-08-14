@@ -4,8 +4,7 @@ on:
   push:
     branches: [dev]
     paths:
-      - "backup-bucket/**"
-      - "vpc/**"
+      - "terraform/**"
       - ".github/workflows/terraform.yml"
 
   workflow_dispatch: {}
@@ -35,9 +34,9 @@ jobs:
       fail-fast: false
       matrix:
         module:
-          - vpc/modules/vpc
-          - vpc/examples/basic
-          - backup-bucket
+          - terraform/vpc/modules/vpc
+          - terraform/vpc/examples/basic
+          - terraform/backup-bucket
 
     defaults:
       run:
@@ -66,8 +65,8 @@ jobs:
       fail-fast: false
       matrix:
         module:
-          - vpc/examples/basic
-          - backup-bucket
+          - terraform/vpc/examples/basic
+          - terraform/backup-bucket
 
     defaults:
       run:
