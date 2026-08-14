@@ -4,8 +4,15 @@ on:
   push:
     branches: [dev]
     paths:
-      - "backup-bucket/**"
-  workflow_dispatch: {}
+      - "**/*.tf"
+      - ".github/workflows/terraform.yml"
+
+  pull_request:
+    paths:
+      - "**/*.tf"
+      - ".github/workflows/terraform.yml"
+
+  workflow_dispatch:
 
 jobs:
   fmt:
@@ -21,16 +28,52 @@ jobs:
       - name: terraform fmt -check
         run: terraform fmt -check -recursive -diff
 
+  discover:
+    name: Discover Terraform directories
+    needs: fmt
+    runs-on: ubuntu-latest
+    outputs:
+      directories: ${{ steps.discover.outputs.directories }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Discover Terraform root modules
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          directories=$(find . \
+            -type f \
+            -name '*.tf' \
+            -not -path './.terraform/*' \
+            -not -path './.git/*' \
+            -printf '%h\n' |
+            sort -u |
+            sed 's#^\./##' |
+            jq -R -s -c '
+              split("\n")
+              | map(select(length > 0))
+              | map(select(
+                  . != "vpc/modules/vpc"
+                ))
+            ')
+
+          echo "Discovered Terraform directories:"
+          echo "$directories" | jq .
+
+          echo "directories=$directories" >> "$GITHUB_OUTPUT"
+
   validate:
     name: validate (${{ matrix.directory }})
-    needs: fmt
+    needs: discover
+
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        directory:
-          - backup-bucket
+        directory: ${{ fromJSON(needs.discover.outputs.directories) }}
 
     defaults:
       run:
@@ -50,15 +93,13 @@ jobs:
         run: terraform validate
 
   plan:
-    name: terraform plan (${{ matrix.directory }})
-    runs-on: ubuntu-latest
+    name: plan (${{ matrix.directory }})
     needs: validate
-
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        directory:
-          - backup-bucket
+        directory: ${{ fromJSON(needs.discover.outputs.directories) }}
 
     defaults:
       run:
@@ -78,10 +119,7 @@ jobs:
 
       - name: terraform init
         run: |
-          terraform init -input=false \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=backup-bucket/terraform.tfstate" \
-            -backend-config="region=${{ vars.AWS_REGION }}"
+          terraform init -input=false
 
       - name: terraform plan
         run: terraform plan -input=false
