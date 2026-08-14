@@ -18,6 +18,7 @@ jobs:
   fmt:
     name: FMT
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -32,8 +33,10 @@ jobs:
     name: Discover Terraform directories
     needs: fmt
     runs-on: ubuntu-latest
+
     outputs:
       directories: ${{ steps.discover.outputs.directories }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -43,30 +46,40 @@ jobs:
         run: |
           set -euo pipefail
 
-          directories=$(find . \
-            -type f \
-            -name '*.tf' \
-            -not -path './.terraform/*' \
-            -not -path './.git/*' \
-            -printf '%h\n' |
+          mapfile -t directories < <(
+            find . \
+              -type f \
+              -name '*.tf' \
+              -not -path './.git/*' \
+              -not -path '*/.terraform/*' \
+              -printf '%h\n' |
             sort -u |
             sed 's#^\./##' |
-            jq -R -s -c '
-              split("\n")
-              | map(select(length > 0))
-              | map(select(
-                  . != "vpc/modules/vpc"
-                ))
-            ')
+            grep -v '^vpc/modules/'
+          )
 
           echo "Discovered Terraform directories:"
-          echo "$directories" | jq .
+          printf '%s\n' "${directories[@]}"
 
-          echo "directories=$directories" >> "$GITHUB_OUTPUT"
+          if [ "${#directories[@]}" -eq 0 ]; then
+            echo "ERROR: No Terraform directories found."
+            exit 1
+          fi
+
+          directories_json=$(
+            printf '%s\n' "${directories[@]}" |
+            jq -R -s -c 'split("\n") | map(select(length > 0))'
+          )
+
+          echo "Terraform matrix:"
+          echo "$directories_json" | jq .
+
+          echo "directories=$directories_json" >> "$GITHUB_OUTPUT"
 
   validate:
     name: validate (${{ matrix.directory }})
-    needs: discover
+    needs:
+      - discover
 
     runs-on: ubuntu-latest
 
@@ -94,8 +107,12 @@ jobs:
 
   plan:
     name: plan (${{ matrix.directory }})
-    needs: validate
+    needs:
+      - discover
+      - validate
+
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
@@ -118,8 +135,7 @@ jobs:
           terraform_wrapper: false
 
       - name: terraform init
-        run: |
-          terraform init -input=false
+        run: terraform init -input=false
 
       - name: terraform plan
         run: terraform plan -input=false
