@@ -1,10 +1,3 @@
-# ---------------------------------------------------------------------------
-# Bucket
-#
-# object_lock_enabled must be set at bucket-creation time and requires
-# versioning - both are configured below.
-# ---------------------------------------------------------------------------
-
 resource "aws_s3_bucket" "backup" {
   bucket              = var.bucket_name
   object_lock_enabled = true
@@ -20,8 +13,6 @@ resource "aws_s3_bucket_ownership_controls" "backup" {
   }
 }
 
-# Belt-and-braces: block every form of public access, even though the
-# bucket policy below never grants public access in the first place.
 resource "aws_s3_bucket_public_access_block" "backup" {
   bucket = aws_s3_bucket.backup.id
 
@@ -38,10 +29,6 @@ resource "aws_s3_bucket_versioning" "backup" {
     status = "Enabled"
   }
 }
-
-# ---------------------------------------------------------------------------
-# Encryption at rest
-# ---------------------------------------------------------------------------
 
 resource "aws_kms_key" "backup" {
   count = var.use_kms ? 1 : 0
@@ -72,13 +59,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "backup" {
   }
 }
 
-# ---------------------------------------------------------------------------
-# Object Lock - protects backups against early/accidental/malicious deletion
-# (e.g. ransomware) for the full retention window. COMPLIANCE mode means not
-# even the account root can delete/overwrite an object before its retention
-# date, which is the standard "immutable backup" best practice.
-# ---------------------------------------------------------------------------
-
 resource "aws_s3_bucket_object_lock_configuration" "backup" {
   bucket = aws_s3_bucket.backup.id
 
@@ -91,12 +71,6 @@ resource "aws_s3_bucket_object_lock_configuration" "backup" {
 
   depends_on = [aws_s3_bucket_versioning.backup]
 }
-
-# ---------------------------------------------------------------------------
-# Lifecycle - guarantees backups are deleted once retention_days is up
-# ("stores backups for 180 days and no more"), cleans up noncurrent versions
-# and aborts stale multipart uploads to control storage cost.
-# ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket_lifecycle_configuration" "backup" {
   bucket = aws_s3_bucket.backup.id
@@ -122,16 +96,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "backup" {
 
   depends_on = [aws_s3_bucket_versioning.backup]
 }
-
-# ---------------------------------------------------------------------------
-# Bucket policy
-#
-# - Grants the cross-account backup_uploader role exactly the permissions it
-#   needs to upload backups (least privilege - no delete, no bucket admin).
-# - Denies any request made over plain HTTP.
-# - Denies uploads that don't specify the expected server-side encryption
-#   header, so nothing can accidentally land in the bucket unencrypted.
-# ---------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "backup" {
   statement {
@@ -165,7 +129,7 @@ data "aws_iam_policy_document" "backup" {
       identifiers = ["*"]
     }
 
-    actions = ["s3:*"]
+    actions   = ["s3:*"]
     resources = [
       aws_s3_bucket.backup.arn,
       "${aws_s3_bucket.backup.arn}/*",
