@@ -17,8 +17,8 @@ variable "retention_days" {
     and the lifecycle expiration rule (guarantees objects are deleted once
     the retention window is over, per the "180 days and no more" requirement).
   EOT
-  type    = number
-  default = 180
+  type        = number
+  default     = 180
 }
 
 variable "noncurrent_version_expiration_days" {
@@ -34,8 +34,8 @@ variable "use_kms" {
     charges). If false, SSE-S3 (AES256) is used, which is free and still
     encrypts everything at rest. Defaults to false to keep this example free.
   EOT
-  type    = bool
-  default = false
+  type        = bool
+  default     = false
 }
 
 variable "uploader_role_arn" {

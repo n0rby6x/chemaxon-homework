@@ -165,7 +165,7 @@ data "aws_iam_policy_document" "backup" {
       identifiers = ["*"]
     }
 
-    actions   = ["s3:*"]
+    actions = ["s3:*"]
     resources = [
       aws_s3_bucket.backup.arn,
       "${aws_s3_bucket.backup.arn}/*",

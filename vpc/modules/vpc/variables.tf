@@ -43,8 +43,8 @@ variable "single_nat_gateway" {
             failure for outbound traffic).
     false = 1 NAT Gateway per AZ (highly available, ~2x NAT Gateway cost).
   EOT
-  type    = bool
-  default = true
+  type        = bool
+  default     = true
 }
 
 variable "tags" {
