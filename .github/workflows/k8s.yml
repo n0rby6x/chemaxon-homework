@@ -117,7 +117,7 @@ jobs:
           echo "Response:"
           echo "$response"
 
-          expected='{"message":"Hello World"}'
+          expected='{"message":"Hello World!"}'
 
           if [ "$response" != "$expected" ]; then
             echo "ERROR: Unexpected response."
